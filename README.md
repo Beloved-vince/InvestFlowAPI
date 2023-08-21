@@ -1,2 +1,2 @@
 # InvestFlowAPI
-Fintech related API
+Fintech related API loan investment app
