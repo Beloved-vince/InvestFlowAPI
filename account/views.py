@@ -1,12 +1,14 @@
 from django.shortcuts import render
 from account.models import CustomUser
-from account.serializers import CustomUserSerializer
+from account.serializers import CustomUserSerializer, VerifyUserSerializer
 from rest_framework_swagger.views import get_swagger_view
 from rest_framework import viewsets, status
 from account.emails import send_otp_via_email
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, action
 from django.contrib.auth import authenticate, login, logout
+from drf_yasg.utils import swagger_auto_schema
+
 # schema_view = get_swagger_view(title='Pastebin API')
 
 # urlpatterns = [
@@ -15,10 +17,22 @@ from django.contrib.auth import authenticate, login, logout
 
 class RegisterViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for registering user accounts and email verification.
+    ViewSet for registering user accounts.
+    parameters:
+        firstname: maximum of 50 characters
+        lastname: maximum of 50 characters
+        email: valid email address for verification
+        bvn: valid bank verification number
+        phone number: country code format
     """
     queryset = CustomUser.objects.all()
     serializer_class = CustomUserSerializer
+    @swagger_auto_schema(
+        request_body=CustomUserSerializer,
+        responses={200: 'Success', 400: 'Bad Request'},
+        operation_description="Authenticate Admin using email and password"
+    )
+    
     
     def perform_create(self, serializer):
         """OTP verification and validation"""
@@ -27,36 +41,35 @@ class RegisterViewSet(viewsets.ModelViewSet):
         send_otp_via_email(user_instance.email)
 
 
+
+class VerifyUserViewSet(viewsets.ViewSet):
+    
+    @swagger_auto_schema(
+        request_body=VerifyUserSerializer,
+        responses={200: 'Success', 400: 'Bad Request'},
+        operation_description="Verify user with valid email"
+    )
+    @action(detail=False, methods=['post'])
     def verify_email(self, request):
-        """Verify email by getting the otp sent to the email from the client view"""
-        
-        input_otp = request.data.get('otp')
-        print(input_otp)        
-        get_email = request.data.get('email')
+        """
+        Verify email by getting the otp sent to the email from the client view
+        """
+        serializer = VerifyUserSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        otp = serializer.validated_data['otp']
+        email = serializer.validated_data['email']
         try:
-            user = CustomUser.objects.get(email=get_email)
+            user = CustomUser.objects.get(email=email)
             print(user)
         except (CustomUser.DoesNotExist, AttributeError, ValueError) as e:
             return Response({'error': f'Email not found {e}'}, status=status.HTTP_404_NOT_FOUND)
 
-        if user.otp == input_otp:
+        if user.otp == otp:
             user.is_verified = True
             user.save()
             return Response({'message': 'Email verified successfully'}, status=status.HTTP_200_OK)
         else:
             return Response({'error': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
-        
-    def login_view(self, request):
-        """Login endpoint"""
-        username = request.data.get('email')
-        password = request.data.get('password')
-        
-        user = authenticate(request, username=username, password=password)
-        if user:
-            return Response(
-                {"message": "Authentication successful"}
-            )
-        else:
-            return Response(
-                {"error": "Invalid credentials"}
-            )
+
+
+

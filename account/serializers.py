@@ -38,3 +38,16 @@ class CustomUserSerializer(serializers.ModelSerializer):
         user = CustomUser.objects.create_user(password=password, **validated_data)
         user.save()
         return user
+    
+    
+class VerifyUserSerializer(serializers.ModelSerializer):
+    """
+    Serializes the custom user model to verify email
+    """
+    email = serializers.EmailField(write_only=True)
+    otp = serializers.CharField(write_only=True)
+
+    class Meta:
+        """meta class for the custom user serializer"""
+        model = CustomUser
+        fields = ['email', 'otp',]
