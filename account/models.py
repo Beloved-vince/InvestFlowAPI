@@ -2,10 +2,12 @@
 """Creating a user model for authentication"""
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
-from django.core.validators import RegexValidator
+from django.core.exceptions import ValidationError
 from django.contrib.auth.models import Group, Permission
 from phonenumber_field.modelfields import PhoneNumberField
 from django.utils.translation import gettext_lazy as _
+from django.contrib.auth.models import User
+
 
 class CustomUserManager(BaseUserManager):
     """Modifying default django model"""
@@ -35,10 +37,11 @@ class CustomUserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 
-bvn_validator = RegexValidator(
-    regex=r'^\d{11}$',
-    message='BVN must be an 11-digit number'
-    )
+def validate_bvn_length(value):
+    if len(str(value)) != 11:
+        raise ValidationError('BVN must be exactly 11 digits.')
+
+
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
     """User model attributes"""
@@ -46,8 +49,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(max_length=30)
     last_name = models.CharField(max_length=30)
     password = models.CharField(max_length=255, blank=False)
-    bvn = models.IntegerField(unique=True)
     phone_number = PhoneNumberField(null=False, blank=False, unique=True)
+    bvn = models.IntegerField(unique=True, validators=[validate_bvn_length])
     otp = models.CharField(max_length=6, null=True, blank=True)
     is_verified = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
@@ -78,3 +81,20 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+
+
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    role = models.CharField(max_length=20, choices=[('borrower', 'Borrower'), ('lender', 'Lender')])
+    credit_score = models.PositiveIntegerField()
+    employment_history = models.TextField()
+    address = models.CharField(max_length=100)
+    date_of_birth = models.DateField()
+    profile_picture = models.ImageField(upload_to='profile_pictures/', null=True, blank=True)
+    
+    def __str__(self) -> str:
+        return self.user.first_name + " "+ self.user.last_name
+    
+    

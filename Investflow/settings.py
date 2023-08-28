@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     
     # apps
     'account',
+    'loan',
     'drf_yasg',
     'rest_framework',
     'rest_framework_simplejwt',
